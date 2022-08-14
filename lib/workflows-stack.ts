@@ -90,6 +90,20 @@ export class WorkflowsStack extends Stack {
     );
     workflow.grantTaskResponse(workflowCompleteFn);
 
+    const workflowResultsFn = new lambda.Function(
+      this,
+      "WorkflowResultsFn",
+      {
+        runtime: lambda.Runtime.NODEJS_16_X,
+        code: lambda.Code.fromAsset("lambdas/workflow/results"),
+        handler: "results.handler",
+        environment: {
+          WORKFLOW_ARN: workflow.stateMachineArn,
+        },
+      }
+    );
+    workflow.grantRead(workflowResultsFn);
+
     const workflowApi = new apigw.RestApi(this, "WorkflowApi", {
       restApiName: "WorkflowApi",
     });
@@ -101,6 +115,10 @@ export class WorkflowsStack extends Stack {
     workflowRs.addMethod(
       "PUT",
       new apigw.LambdaIntegration(workflowCompleteFn)
+    );
+    workflowRs.addMethod(
+      "GET",
+      new apigw.LambdaIntegration(workflowResultsFn)
     );
   }
 }

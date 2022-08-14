@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const https = require("https");
 const url = require("url");
 
@@ -41,6 +42,7 @@ exports.handler = async function (event) {
       status: "done",
       data: {
         servicePayload: ["foo", "bar"],
+        random: crypto.randomUUID(),
       },
     })
   );

@@ -10,8 +10,7 @@ function extractResourceId(arn) {
 
 exports.handler = async function (event) {
   const serviceUrl = process.env.SERVICE_URL;
-  const workflowUrl =
-    "https://" + event.requestContext.domainName + "/prod/workflows/";
+  const workflowUrl = `https://${event.requestContext.domainName}/prod/workflows/`;
   const stateMachineArn = process.env.WORKFLOW_ARN;
 
   const workflowInput = {
@@ -25,8 +24,10 @@ exports.handler = async function (event) {
 
   const response = await sfn.startExecution(startExecutionInput).promise();
 
+  const id = extractResourceId(response.executionArn);
   const output = {
-    id: extractResourceId(response.executionArn),
+    id,
+    url: `${workflowUrl}${id}`,
   };
 
   return {
