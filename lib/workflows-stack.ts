@@ -90,18 +90,14 @@ export class WorkflowsStack extends Stack {
     );
     workflow.grantTaskResponse(workflowCompleteFn);
 
-    const workflowResultsFn = new lambda.Function(
-      this,
-      "WorkflowResultsFn",
-      {
-        runtime: lambda.Runtime.NODEJS_16_X,
-        code: lambda.Code.fromAsset("lambdas/workflow/results"),
-        handler: "results.handler",
-        environment: {
-          WORKFLOW_ARN: workflow.stateMachineArn,
-        },
-      }
-    );
+    const workflowResultsFn = new lambda.Function(this, "WorkflowResultsFn", {
+      runtime: lambda.Runtime.NODEJS_16_X,
+      code: lambda.Code.fromAsset("lambdas/workflow/results"),
+      handler: "results.handler",
+      environment: {
+        WORKFLOW_ARN: workflow.stateMachineArn,
+      },
+    });
     workflow.grantRead(workflowResultsFn);
 
     const workflowApi = new apigw.RestApi(this, "WorkflowApi", {
@@ -116,9 +112,71 @@ export class WorkflowsStack extends Stack {
       "PUT",
       new apigw.LambdaIntegration(workflowCompleteFn)
     );
-    workflowRs.addMethod(
+    workflowRs.addMethod("GET", new apigw.LambdaIntegration(workflowResultsFn));
+
+    // Composite workflow service
+    const initCompositeState = new sfn.Pass(this, "Init Composite");
+
+    const subWorkflowState = new tasks.StepFunctionsStartExecution(
+      this,
+      "Sub Workflow",
+      {
+        stateMachine: workflow,
+        integrationPattern: sfn.IntegrationPattern.RUN_JOB,
+      }
+    );
+    const mapCompositeState = new sfn.Map(this, "Map State");
+    mapCompositeState.iterator(subWorkflowState);
+
+    const finalizeCompositeState = new sfn.Pass(this, "Finalize Composite");
+
+    const compositeWorkflowDefinition = initCompositeState
+      .next(mapCompositeState)
+      .next(finalizeCompositeState);
+
+    const compositeWorkflow = new sfn.StateMachine(this, "Workflow Composite", {
+      definition: compositeWorkflowDefinition,
+    });
+
+    const compositeWorkflowStartFn = new lambda.Function(
+      this,
+      "CompositeWorkflowStartHandler",
+      {
+        runtime: lambda.Runtime.NODEJS_16_X,
+        code: lambda.Code.fromAsset("lambdas/workflow/start-composite"),
+        handler: "start-composite.handler",
+        environment: {
+          COMPOSITE_WORKFLOW_ARN: compositeWorkflow.stateMachineArn,
+          SERVICE_URL: serviceApi.url,
+        },
+      }
+    );
+    compositeWorkflow.grantStartExecution(compositeWorkflowStartFn);
+
+    const compositeWorkflowResultsFn = new lambda.Function(
+      this,
+      "CompositeWorkflowResultsFn",
+      {
+        runtime: lambda.Runtime.NODEJS_16_X,
+        code: lambda.Code.fromAsset("lambdas/workflow/results-composite"),
+        handler: "results-composite.handler",
+        environment: {
+          COMPOSITE_WORKFLOW_ARN: compositeWorkflow.stateMachineArn,
+        },
+      }
+    );
+    compositeWorkflow.grantRead(compositeWorkflowResultsFn);
+
+    const compositeWorkflowsRs =
+      workflowApi.root.addResource("compositeWorkflows");
+    compositeWorkflowsRs.addMethod(
+      "POST",
+      new apigw.LambdaIntegration(compositeWorkflowStartFn)
+    );
+    const compositeWorkflowRs = compositeWorkflowsRs.addResource("{workflow}");
+    compositeWorkflowRs.addMethod(
       "GET",
-      new apigw.LambdaIntegration(workflowResultsFn)
+      new apigw.LambdaIntegration(compositeWorkflowResultsFn)
     );
   }
 }
