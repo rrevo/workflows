@@ -10,6 +10,34 @@ See setup and deployment instructions below.
 
 See [Workflow Lambda](./lib/workflows-lambda.ts) for code. Explanation in [blog](https://rahulrevo.substack.com/p/tech-workflow-basics-with-aws-step).
 
+### Workflow for idempotent tests
+
+See [Workflow Idempotent](./lib/workflows-idempotent.ts) for code.
+
+After deployment the API endpoints are listed as output like-
+
+```shell
+Outputs:
+WorkflowIdempotentStack.WorkflowIdempotentApiEndpointXXXX = https://$api.execute-api.$region.amazonaws.com/prod/
+
+Stack ARN:
+arn:aws:cloudformation:region::stack/WorkflowIdempotentStack/id
+```
+
+Invoke using curl like
+
+```shell
+curl --request POST \
+  --url https://$api.execute-api.$region.amazonaws.com/prod/workflow \
+  --header 'Content-Type: application/json' \
+  --data '{
+	"name": "foo",
+	"input": { "data": "value"}
+}'
+```
+
+the name is the id to be used for the workflow execution.
+
 ### Workflow for async token pattern
 
 See [Workflow](./lib/workflows-stack.ts) for code.
@@ -48,9 +76,9 @@ in [getting started](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.ht
 
 ### Project commands
 
-| Task                 | Command         |
-| -------------------- | --------------- |
-| install npm packages | `npm install`   |
-| build                | `npm run build` |
-| deploy to aws        | `cdk deploy`    |
-| destroy app          | `cdk destroy`   |
+| Task                 | Command           |
+| -------------------- | ----------------- |
+| install npm packages | `npm install`     |
+| build                | `npm run build`   |
+| deploy to aws        | `cdk deploy -all` |
+| destroy app          | `cdk destroy`     |
