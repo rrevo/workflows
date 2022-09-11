@@ -27,6 +27,7 @@ export class WorkflowIdempotentStack extends Stack {
       }
     );
     noopWorkflow.grantStartExecution(idempotentWorkflowStartFn);
+    noopWorkflow.grantRead(idempotentWorkflowStartFn);
 
     const workflowIdempotentApi = new apigw.RestApi(
       this,

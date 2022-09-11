@@ -14,9 +14,26 @@ exports.handler = async function (event) {
 
   var response;
   try {
-    response = await sfn.startExecution(startExecutionInput).promise();
+    let startExecution = await sfn
+      .startExecution(startExecutionInput)
+      .promise();
+    response = {
+      message: "New execution",
+      startExecution,
+    };
   } catch (ex) {
-    response = ex;
+    let executionArn =
+      stateMachineArn.replace(":stateMachine:", ":execution:") +
+      ":" +
+      inputBody.name;
+    let describeExecution = await sfn
+      .describeExecution({ executionArn })
+      .promise();
+    response = {
+      message: "Detected repeated execution",
+      startExecution: ex,
+      describeExecution,
+    };
   }
 
   return {
