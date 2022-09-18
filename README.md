@@ -40,7 +40,42 @@ the name is the id to be used for the workflow execution.
 
 ### Workflow for async token pattern
 
-See [Workflow](./lib/workflows-stack.ts) for code.
+[Workflow Stack](./lib/workflows-stack.ts) implements the [callback with token pattern](https://rahulrevo.substack.com/p/tech-workflow-service-integration). The flow diagram is shown below.
+
+```mermaid
+sequenceDiagram
+    participant client
+    participant systemGateway
+    participant systemLambda
+    participant systemStepfn
+    participant external
+
+    client->>+systemGateway: POST /tasks
+    systemGateway->>+systemLambda: invoke lambda for start
+    systemLambda->>systemStepfn: start workflow execution
+    activate systemStepfn
+    systemStepfn->>systemLambda: $workflow init
+    systemLambda->>-systemGateway: $taskId started
+    systemGateway->>-client: $taskId started
+
+
+    systemStepfn->>systemLambda: External service step
+    activate systemLambda
+    systemLambda->>+external: POST /external { id, resumeToken }
+    deactivate systemLambda
+    activate external
+    external->>+systemGateway: PUT /tasks/$taskId { id, resumeToken, status }
+    deactivate external
+    activate systemGateway
+    systemGateway->>+systemLambda: invoke lambda for update status
+    deactivate systemGateway
+    systemLambda->>systemStepfn: update workflow
+    systemStepfn->>systemLambda: $workflow update
+    systemLambda->>-systemGateway: $taskId updated
+
+    systemStepfn->>systemStepfn: workflow complete
+    deactivate systemStepfn
+```
 
 After deployment the API endpoints are listed as output like-
 
